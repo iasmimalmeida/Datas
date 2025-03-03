@@ -1,0 +1,22 @@
+---
+title: "About the project"
+author: "Iasmim, Cláudia and Raquel"
+format: html
+editor: visual
+---
+
+## Introduction
+
+The study analyzes the decentralization of chikungunya in Brazil from 2014 to 2022, highlighting its spread from metropolitan regions to non-metropolitan municipalities. Using data from the Notifiable Diseases Information System, DataSUS Brazil ([SINAN](https://portalsinan.saude.gov.br/sinan)), a health data platform from the Ministry of Health, and the Brazilian Institute of Geography and Statistics ([IBGE](https://www.ibge.gov.br/)), we proposed a Decentralization Index (𝛹) to assess this distribution.
+
+The study is part of the PhD research in Epidemiology conducted by Iasmim Almeida ([ENSP/Fiocruz](https://ensp.fiocruz.br/)) and supervised by Cláudia Codeço and Raquel Lana.
+
+**Contat information**:
+
+-   Iasmim Ferreira de Almeida [ORCID](https://orcid.org/0000-0002-9334-4093) ([iasmimalmeida26\@gmail.com](mailto:iasmimalmeida26@gmail.com))
+
+-   Cláudia Torres Codeço [ORCID](https://orcid.org/0000-0003-1174-178X) ([claudia.codeco\@fiocruz.br](mailto:claudia.codeco@fiocruz.br))
+
+-   Raquel Martins Lana [ORCID](https://orcid.org/0000-0002-7573-1364) ([raquel.lana\@bsc.es](mailto:raquel.lana@bsc.es), [raquelmlana\@gmail.com](mailto:raquelmlana@gmail.com))
+
+## 

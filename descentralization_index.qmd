@@ -1,0 +1,118 @@
+---
+title: "Beyond the metropolises: the decentralization of chikungunya to non-metropolitan regions across Brazil."
+author: "Iasmim Ferreira de Almeida, Cláudia Torres Codeço and Raquel Martins Lana"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Library
+
+```{r, message = FALSE}
+packages <- c("tidyverse", "geofacet", "sf")
+invisible(install.packages(setdiff(packages, rownames(installed.packages()))))
+invisible(lapply(packages, require, character.only = TRUE))
+
+options(scipen = 999) # avoid scientific numbers
+
+```
+
+## Data
+
+The databases are:
+
+-   `regic2018.csv`: REGIC classification. REGIC (Regions of Influence of Cities) is an IBGE study that maps Brazil's urban hierarchy and the relationships between cities based on flows of goods, services and people. It identifies urban centers and their area of ​​influence, classifying cities according to their regional and national importance. Available at: [Data Regic](https://www.ibge.gov.br/geociencias/organizacao-do-territorio/redes-e-fluxos-geograficos/15798-regioes-de-influencia-das-cidades.html).
+-   `inc_metr_non_metr.csv` - average chikungunya incidence in metropolitan and non-metropolitan municipalities of each state in each year of analysis 2014-2022.
+-   `reg_metr_non_metr.csv` - classification of Brazilian municipalities into metropolitan and non-metropolitan according to the paper's methodology.
+
+```{r}
+# Data for Regic
+regic2018 <- read.csv2("tables/regic2018.csv", encoding = "latin1") # encoding to have formated words in this table
+
+# Data for incidence
+load("tables/inc_metr_non_metr.RData")
+colnames(chikvrm)[3] <- 'UF_ACR' 
+```
+
+# Calculation of the decentralization index (𝛹)
+
+Decentralization Index (`𝛹`) is proposed to describe the spread of chikungunya between metropolitan (`M`) and non-metropolitan (`N`) regions in each federal unit or state (`s`), per year (`y`). This metric calculates the ratio between the total incidence in non-metropolitan municipalities (`In(y,s)`) and the total incidence in metropolitan municipalities (`Im(y,s)`), for each state and year, with higher values reflecting the disease transmission decentralization degree, where `C(m,y)` is the total number of cases in municipality `m` in year `y`, and `P(m,y)` is the population in `m`, in year `y`; Ms is the set of metropolitan municipalities in state s.
+
+*Mathematical formula:*
+
+![](formula_descentralization_index.png){fig-align="center"}
+
+*Interpretation:*
+
+`𝛹` \< 1 : Higher incidence in metropolitan areas.
+
+`𝛹` = 1 : Balanced distribution between regions.
+
+`𝛹` \> 1 : Higher incidence in non-metropolitan areas.
+
+```{r, message = FALSE, warning = FALSE}
+# Total incidence of metropolitan region by UF and YEAR
+chikvM <- chikvrm %>%
+  filter(hierarquia == "metropolitana") %>% 
+  group_by(UF_ACR, YEAR, REGION) %>%  
+  summarise(INCM = sum(INCrm))
+
+# Total incidence of non- metropolitan region by UF and YEAR
+chikvN <- chikvrm %>%
+  filter(hierarquia == "nao metropolitana") %>% 
+  group_by(UF_ACR, YEAR, REGION) %>%
+  summarise(INCN = sum(INCrm))
+
+# Joining the tables
+df <- chikvN %>%
+  left_join(chikvM)
+
+# Calculating the decentralization index
+df <- df %>%
+  mutate(IND_UF = INCN/INCM)
+
+# Replacing NA by zero
+df <- df %>% 
+  mutate_at(c("IND_UF"), ~replace(., is.na(.), 0)) 
+
+# Saving final data
+write.csv2(df, "tables/index_descentralization.csv")
+
+```
+
+### Chikungunya decentralization index (𝛹) by year and Brazil Federative Unit (Figure 2)
+
+```{r, message = FALSE, warning = FALSE}
+# Changing the variable category
+df <- df %>% 
+  mutate(YEAR = as.numeric(YEAR))
+
+# Changing all measures that are greater than 1 to up to 5, making it easier to view on the plot
+df$IND_UF_A <- ifelse(df$IND_UF > 5, 5, df$IND_UF) 
+
+desc_index <- ggplot(df, aes(x = YEAR, y = IND_UF_A, group = UF_ACR, color = "red")) +
+  geom_line(stat = "identity", linewidth = 0.8, position = position_dodge(preserve = "single")) +
+  geom_segment(aes(x = min(YEAR), y = 1, xend = max(YEAR), yend = 1), 
+               color = "cadetblue4", linewidth = 0.3) +
+  facet_geo(~UF_ACR, grid = "br_states_grid1", scales = "free_y") +  
+  scale_x_continuous(breaks = seq(min(df$YEAR), max(df$YEAR), by = 2)) + 
+  labs(x = "Years", y = "Decentralization Index (Ψ)") + 
+  theme_minimal() +  # Improves aesthetics
+  theme(
+    strip.text = element_text(color = "black", size = 8, face = "bold"),
+    strip.background = element_rect(fill = "cadetblue3"),
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 7),
+    axis.text.y = element_text(hjust = 1, size = 7),
+    legend.text = element_text(size = 8),
+    legend.title = element_text(size = 8, face = "bold"),
+    legend.margin = margin(0, 0, 0, 0),
+    legend.position = "none",
+    plot.title = element_text(size = 8)
+  )
+
+desc_index
+
+ggsave(desc_index, filename = "figures/decentralization_index_state.png", width = 2500/300, height = 2000/300, dpi = 300, path = "figures", units = "in", device = "png")  
+
+```
