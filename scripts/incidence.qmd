@@ -1,0 +1,79 @@
+---
+title: "Beyond the metropolises: the decentralization of chikungunya to non-metropolitan regions across Brazil."
+author: "Iasmim Ferreira de Almeida, Cláudia Torres Codeço and Raquel Martins Lana"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Biblioteca
+
+```{r, message = FALSE}
+packages <- c("tidyverse", "geofacet", "sf")
+invisible(install.packages(setdiff(packages, rownames(installed.packages()))))
+invisible(lapply(packages, require, character.only = TRUE))
+
+options(scipen = 999) # avoid scientific numbers
+
+```
+
+# Incidência e Classificação dos municipios
+
+## Incidência
+
+```{r}
+load("../data/chikv_provaveis_14_22.Rdata")
+
+# Calculo da incidencia por ano por município
+d_ano_p <- dp2 %>% 
+  group_by(CODE_MUNI_7, YEAR, POPULACAO) %>%
+  summarise(CASESy = sum(CASES)) %>%
+  mutate(INCy = CASESy/POPULACAO * 100000) %>%
+  rename(code_muni = CODE_MUNI_7) %>%
+  ungroup %>%
+  mutate(code_muni = as.character(code_muni)) 
+
+# NA
+d_ano_p %>% map(~mean(is.na(.)))
+
+#observando
+summary(d_ano_p$INCy) #maior incidência na série foi Fernando de Noronha 2021
+
+# Salvando tabela de incidência por ano
+write.csv2(d_ano_p, "tables/incid_anual_chik_provaveis.csv")
+```
+
+## Incidencia por região metropolitana e não metropolitana
+
+```{r}
+# Ler os dados
+incid_anual <- read_csv2("tables/incid_anual_chik_provaveis.csv")
+reg_metr_non_metr <- read.csv2("tables/reg_metr_non_metr.csv")
+
+# Excluir o Distrito Federal antes de juntar os bancos
+incid_anual <- incid_anual %>% filter(CODE_MUNI != "5300108")
+reg_metr_non_metr <- reg_metr_non_metr %>% filter(CODE_MUNI != "5300108")
+
+# Juntar os bancos de dados pelo CODE_MUNI
+dados_merged <- incid_anual %>%
+  left_join(reg_metr_non_metr, by = "CODE_MUNI")
+
+# Agrupar por HIERARQUIA (metropolitano ou não), REGION, STATE e YEAR
+chikvrm <- dados_merged %>%
+  group_by(regiao, REGION, STATE, YEAR) %>%
+  summarise(
+    CASESrm = sum(CASESy, na.rm = TRUE),   # Total de casos na categoria
+    POP_SIZErm = sum(POPULACAO, na.rm = TRUE)  # Total da população na categoria
+  ) %>%
+  ungroup() %>%
+  mutate(
+    INCrm = (CASESrm / POP_SIZErm) * 100000, # Cálculo da incidência por 100 mil hab.
+    hierarquia = regiao  # Renomeando a coluna 'regiao' para 'hierarquia'
+  ) %>%
+  select(hierarquia, REGION, STATE, YEAR, CASESrm, POP_SIZErm, INCrm) # Selecionando as variáveis desejadas
+
+save(chikvrm, file = "data/inc_reg_met_non_met.RData")
+
+```
+
