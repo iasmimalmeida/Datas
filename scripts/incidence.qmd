@@ -26,8 +26,8 @@ options(scipen = 999) # avoid scientific numbers
 load("../data/chikv_provaveis_14_22.Rdata")
 
 # Calculo da incidencia por ano por município
-d_ano_p <- dp2 %>% 
-  group_by(CODE_MUNI_7, YEAR, POPULACAO) %>%
+d_inc <- d %>% 
+  group_by(CODE_MUNI, YEAR, POPULACAO) %>%
   summarise(CASESy = sum(CASES)) %>%
   mutate(INCy = CASESy/POPULACAO * 100000) %>%
   rename(code_muni = CODE_MUNI_7) %>%
@@ -48,7 +48,7 @@ write.csv2(d_ano_p, "tables/incid_anual_chik_provaveis.csv")
 
 ```{r}
 # Ler os dados
-incid_anual <- read_csv2("tables/incid_anual_chik_provaveis.csv")
+# incid_anual <- read_csv2("tables/incid_anual_chik_provaveis.csv")
 reg_metr_non_metr <- read.csv2("tables/reg_metr_non_metr.csv")
 
 # Excluir o Distrito Federal antes de juntar os bancos

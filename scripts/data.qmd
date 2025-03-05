@@ -33,7 +33,7 @@ No momento da análise não havia, via FTP, dados para o ano de 2014 e dados mai
 ```{r}
 d14 <- read.dbf("../data/chik_2014.dbf", as.is = T)
 names(d14) 
-summary(d14$CLASSI_FIN) # Categorias da variável de classificação final
+unique(d14$CLASSI_FIN) # Categorias da variável de classificação final
 d14 %>% map(~mean(is.na(.)))  # Presença de Na
 
 # Selecionando variáveis para as análises
@@ -45,7 +45,7 @@ d14 <- d14 %>%
          ANO = epiyear(DT_NOTIFIC)) # Extraindo o ano epidemiológico 
 
 # Conferindo se nao há datas mal formatadas
-unique(d14$DT_NOTIFIC)
+#unique(d14$DT_NOTIFIC)
 
 ```
 
@@ -56,16 +56,25 @@ unique(d14$DT_NOTIFIC)
 ```{r}
 dados <- fetch_datasus(year_start = 2015, year_end = 2021, information_system = "SINAN-CHIKUNGUNYA")
 
-save(dados, file = "../data/chikv_2015_2021_bruto.RData")
+#save(dados, file = "../data/chikv_2015_2021_bruto.RData")
 
 ```
 
 #### Organizando banco
 
+Para esses anos, foram identificados alguns registros com inconsistencias na variável de classificaçao final. Esses foram removidos, totalizando 5 registros.
 ```{r}
 #load("../data/chikv_2015_2021_bruto.RData")
 names(dados) 
-summary(dados$CLASSI_FIN) # Categorias da variável de classificação final
+unique(dados$CLASSI_FIN) # Categorias da variável de classificação final
+dados %>% filter(CLASSI_FIN == "!\xf6")
+dados %>% filter(CLASSI_FIN == "\xad\x84")
+dados %>% filter(CLASSI_FIN == "H0")
+dados %>% filter(CLASSI_FIN == "10")
+# Removendo os registros acima
+dados <- dados %>% 
+  filter(!(CLASSI_FIN %in% c("!\xf6", "\xad\x84", "H0", "10")))
+
 dados %>% map(~mean(is.na(.)))  # Presença de Na
 
 # Selecionando variáveis
@@ -85,16 +94,17 @@ unique(dados$DT_NOTIFIC[dados$ANO == 2019])
 unique(dados$DT_NOTIFIC[dados$ANO == 2020])
 unique(dados$DT_NOTIFIC[dados$ANO == 2021])
 
-save(dados, file = "../data/chikv15-21.RData")#salvando com as mudanças
+#save(dados, file = "../data/chikv15-21.RData")#salvando com as mudanças
 
 ```
 
 ### Dados 2022 (Infodengue)
 
 ```{r}
-d22 <- read.dbf("../data/CHIKUNGUNYA_2022.dbf", as.is = T)
+d22 <- read.dbf("~/Documents/BSC/Fundings/MSCA/Development/Analysis/data/Chikungunya2022/CHIKUNGUNYA_2022.dbf", as.is = T) # Raquel's path
+#d22 <- read.dbf("CHIKUNGUNYA_2022.dbf", as.is = T) # Iasmim's path
 names(d22) 
-summary(d22$CLASSI_FIN) # Categorias da variável de classificação final
+unique(d22$CLASSI_FIN)
 d22 %>% map(~mean(is.na(.)))  # Presença de NA
 
 # Selecionando variáveis
@@ -103,22 +113,29 @@ sel_var <- c("DT_NOTIFIC", "SG_UF_NOT", "ID_MUNICIP","ID_PAIS", "CLASSI_FIN", "C
 d22 <- d22 %>% 
   select(all_of(sel_var)) %>% 
   mutate(SE = epiweek(DT_NOTIFIC), # Extraindo a semana epidemiológica 
-         ANO = epiyear(DT_NOTIFIC)) # Extraindo o ano epidemiológico 
+         YEAR = epiyear(DT_NOTIFIC)) # Extraindo o ano epidemiológico 
 
-save(d22_1, file = "../data/chikv22.RData")
+unique(d22$CLASSI_FIN)
+unique(d22$DT_NOTIFIC)
+
+# save(d22, file = "../data/chikv22.RData")
+
 ```
 
 ### Juntando os bancos para banco final 2014-2022
 
 ```{r}
-# Unindo todos - TALVEZ apenas bind_row aqui
-chikv_14_22 <- dados %>% 
- full_join(d14)
+# Unindo todos
+names(d14)
+names(dados)
+names(d22)
 
-chikv_14_22 <- chikv_14_22 %>% 
- full_join(d22)
+d <- bind_rows(d14, dados, d22)
 
-save(chikv_14_22, file = "../data/chikv14-22.RData")
+unique(d$CLASSI_FIN)
+unique(d$CRITERIO)
+
+#save(d, file = "../data/chikv14-22.RData")
 
 ```
 
@@ -136,54 +153,26 @@ A variável CLASSI_FIN indica o desfecho do caso após a notificação, classifi
 
 13 -- Chikungunya
 
-Para a análise, os casos prováveis de chikungunya foram selecionados a partir dos valores "13", "2", "8", "Chikungunya", "Inconclusivo" e NA. O valor NA foi tratado como inconclusivo, pois, na base de dados, ele ocorria apenas na variável de classificação final. ----------NAO ENTENDI fazer isso com o NA.
-
-O código filtra os dados para manter apenas os casos que correspondem a essas categorias e salva o subconjunto resultante no arquivo "chikungunya_provaveis.RData", garantindo que apenas os registros relevantes para a análise de Chikungunya sejam preservados.
-
+Para a análise, os casos prováveis de chikungunya foram selecionados a partir dos valores "13", "2", "8", "Chikungunya", "Inconclusivo" e NA, excluindo a categoria "5", que sao os descartados. 
 ```{r}
-load("../data/chikv14-22.RData")
+#load("../data/chikv14-22.RData")  # 1419798
 provaveis <- c("13", "2", "8", "Chikungunya", "Inconclusivo", NA) # Na entrou como inconclusivo visto que o NA era somente na classificação final.
 
-chikv_14_22 <- chikv_14_22 %>%
-  filter(CLASSI_FIN %in% provaveis)
-  
-str(chikv_14_22$CLASSI_FIN)
+ d <- d %>%
+  filter(CLASSI_FIN %in% provaveis) # 980559
 
-save(chikv_14_22, file = "../data/chikungunya_provaveis.RData")
+#save(d, file = "../data/chikungunya_provaveis.RData")
 ```
 
-# Parte 2 - Novas variáveis
-
-**1. Gerando um banco com todos os municípios**
+# Parte 2 - Banco com todos os municípios, semanas e anos
 
 Para garantir séries temporais completas, foram adicionados aos dados todos os municípios com todas as semanas epidemiológicas (1 a 53) e anos do estudo. Quando não houve notificações em uma semana e ano específicos, o valor foi registrado como zero.
 
-**2. Adicionando estimativas populacionais do IBGE.**
+### Utilizando o expand.grid 
 
-Dados populacionais de 2014 a 2022 `pop2014_2022.csv` foram adicionados aos dados para o futuro cálculo de incidência.
-
-**3. Filtrando apenas casos autóctones (Brasil) .**
-
-Foram carregados os dados de casos prováveis de chikungunya `chikungunya_provaveis.Rdata`. Filtrou os casos ocorridos apenas no Brasil `ID_PAIS == "1"` ou `BRASIL`. Salvou o banco filtrado `chikungunya_provaveis_timeline.RData`.
-
-**4. Criando a variável de casos.**
-
-Foram selecionadas as variáveis relevantes que informam o cñodigo do municipio, data de ntificaçao, classificaçao do caso, entre outras. 
-
-NAO ENTENDI isso aqui da variavel CASES
-Criou a variável CASES, atribuindo 1 a cada linha do banco. 
-
-SEM_NOT nao me aprece que té sendo usada
-Extraiu apenas o número da semana epidemiológica (SE) da variável SEM_NOT. Removeu linhas com semanas corrompidas. 
-
-Agrupou os dados por município, semana e ano, somando o número de casos por agrupamento.
-
-## Criando banco com todos municípios
-
-Esse banco permitirá que ao juntar com os dados todos os municípios tenham todas semanas epidemiológicas de todos os anos.
-
+Com a funçao expand-grid, foi gerado um banco incluindo todos os municípios brasileiros, todas as semanas e anos de estudo. 
 ```{r}
-# Dados do IBGE
+# Dados do IBGE para obter todos os municipios. Posteriormente será usado para fornecer a populaçao
 pop <- read_csv("../data/pop2014_2022.csv")
 
 # Retirando o sétimo digito de CODE_MUNI_7 para ficar compátivel com ID_MUNICIP dos dados de saúde
@@ -203,97 +192,90 @@ d_expand <- expand.grid(SE = semanas,
 
 ```
 
+
+## Selecionando os casos autóctones do Brasil
+
+Para os casos autótocnes provaveis foram excluídos casos foram do país, resultando em 980521 registros.
+```{r}
+#load("../data/chikungunya_provaveis.Rdata")
+unique(d$ID_PAIS) # Manter apenas "1" que é o código para o Brasil
+d %>% filter(ID_PAIS != "1") %>% count() # 31 registros sao de casos notificados em outros paises. Removidos:
+d <- d %>%
+  filter(ID_PAIS == "1") 
+
+#save(d, file = "../data/chikungunya_provaveis_timeline.RData")
+
+```
+
+## Agregando por município, semana epidemiológica e ano.
+
+O código abaixo contou quantos casos há por município, semana e ano.
+```{r}
+## Somando os casos por semana de notificação, município e ano.
+d <-  d %>% 
+  count(ID_MUNICIP, SE, YEAR, name = "CASES")
+
+```
+
+## Inserindo todos os municípios e todas as semanas
+
+Ao unir `d` com `d_expand`, obtem-se um banco com todos os municípios, semanas e anos e a contagem de casos. Os municípios que nao registraram casos em determinada semana, recebe NA no momento da junçao. Dessa forma, na sequência, foi atribuido zero no lugar de NA. 
+```{r}
+# Abrindo banco
+str(d)
+str(d_expand)
+
+d <- d %>%
+  rename(CODE_MUNI = ID_MUNICIP)
+
+d_expand <- d_expand %>%
+  mutate(CODE_MUNI = as.character(CODE_MUNI))
+
+#Juntando bancos
+d <- d_expand %>% 
+ left_join(d)
+
+# NA
+d %>% map(~mean(is.na(.)))
+
+## Atribuindo zero aos lugares com NA em casos
+d <- d %>% 
+  mutate(across(CASES, ~replace(., is.na(.), 0))) %>% 
+  mutate(CODE_UF = str_sub(CODE_MUNI, 1, 2)) %>% # Inserindo o código do municipio. 
+  select(CODE_MUNI, UF, SE, YEAR, CASES) # Reordenando o banco
+
+# Checando os NAs  
+d %>% map(~mean(is.na(.)))
+
+```
+
 ## Estimativas Populacionais do IBGE
 
 As estimativas anuais da população dos municípios brasileiros são calculadas pelo Instituto Brasileiro de Geografia e Estatística (IBGE). Essas estimativas são baseadas nos Censos Demográficos realizados a cada 10 anos e utilizam projeções populacionais considerando crescimento vegetativo, migração e estrutura etária.
 
 Os dados oficiais podem ser acessados diretamente no [IBGE - Estimativas Populacionais](https://www.ibge.gov.br/estatisticas/sociais/populacao/9103-estimativas-de-populacao.html).
 
-```{r}
-# Juntanto os dados com os municipios e semanas completas
-# Agrupar os dados por municipio, dt_ notific, semana e ano
-# Unir com d_expand
-# Atribuir zero aos casos com NA
-# Depois une com as estimativas de populaçao.
+Dados populacionais de 2014 a 2022 `pop2014_2022.csv` foram adicionados aos dados para o futuro cálculo de incidência.
 
-
-save(dados, file = "../data/muni_pop_se.RData") #banco final que juntaremos com dados
-```
-
-## Selecionando os casos somente autóctones
-
-Dados do Brasil (autoctone) provaveis - 990109 casos do Brasil CÓDIGO INTERNACIONAL 1 e BRASIL.
+CONFERIR, o banco ficou com uma linha a mais do que o d_expand. Deveriam ter o mesmo numero de linhas.
 
 ```{r}
-#provaveis
-load("../data/chikungunya_provaveis.Rdata")
-dp1 <- dados_2 # PARA QUE ISSO???????
-Brasil <- c("1", "BRASIL")
-dp1 <- dp1 %>%
-filter(ID_PAIS %in% Brasil) ## se eu quiser excluir os países que não são Brasil
+str(d)
+str(pop)
+pop <- pop %>% 
+  mutate(CODE_UF = as.character(`COD. UF`)) %>% 
+  select(-`COD. UF`) %>% 
+  rename(NAME = `NOME DO MUNICÍPIO`,
+         ACR_UF = UF)
 
-str(dp1$ID_PAIS)
-summary(dp1$ID_PAIS)
+d <- d %>% 
+  mutate(YEAR = as.numeric(YEAR))
 
-save(dp1, file = "../data/chikungunya_provaveis_timeline.RData")
+d <- d %>% 
+  left_join(pop) %>% 
+  select(CODE_MUNI, CODE_MUNI_7, NAME = `NOME DO MUNICÍPIO`, CODE_UF, ACR_UF = UF, SE, YEAR, CASES, POPULACAO)
 
+
+# save(d, file = "../data/chikv_provaveis_14_22.Rdata")
 ```
 
-## Criando variáveis casos
-FAZER ACIMA
-Para provaveis utilizei data de notificação como referência. Depois de juntar com os municípios, aqueles que em CASES, tiver NA , será igual a zero. REFAZER
-
-```{r}
-### Selecionando variáveis
-sel_var <- c("DT_NOTIFIC", "SEM_NOT", "NU_ANO", "SG_UF_NOT", "ID_MUNICIP", "CLASSI_FIN", "CRITERIO")
-
-dp1<- dp1 %>% 
-  select(all_of(sel_var))
-
-dp1 %>% map(~mean(is.na(.))) 
-
-x <- c(rep("1", 990109)) # 990109 é o número de linhas do banco
-dp1$CASES <- x
-
-
-## Somando os casos por semana de notificação,município, ano e UF
-dp <-  dp1 %>% 
-  group_by (ID_MUNICIP, SE, ANO, CASES) %>% # NAO DEVERIA TER CASES aqui entao
-  count  %>%
-  mutate(CASES = n)%>%
-  select(-5) # excluindo n
-
-sum(dp$CASES)
-
-```
-
-## Juntando banco com data.frame com todas as semanas
-
-```{r}
-# Abrindo banco
-load("../data/muni_pop_se.RData")
-
-dp <- dp %>%
-  mutate(
-    ID_MUNICIP = as.character(ID_MUNICIP),
-    NU_ANO = as.character(NU_ANO)
-  ) %>%
-  rename(CODE_MUNI = ID_MUNICIP, YEAR = NU_ANO)
-
-dados <- dados %>%
-  mutate(across(c(YEAR, SE), as.character))
-
-#Juntando bancos
-dp2 <- dados %>% 
- full_join(dp)
-
-# NA
-dp2 %>% map(~mean(is.na(.)))
-
-## Atribuindo zero aos lugares sem casos e sem população
-dp2 <- mutate_at(dp2, c("CASES"), ~replace(., is.na(.), 0)) 
-dp2 %>% map(~mean(is.na(.)))
-sum(dp2$CASES)
-save(dp2, file = "data/chikv_provaveis_14_21.Rdata")
-
-```
