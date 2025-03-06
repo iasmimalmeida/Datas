@@ -25,12 +25,12 @@ options(scipen = 999) # Evita notação científica
 
 Origem dos dados:
 
-Os casos notificados de chikungunya foram obtidos do Sistema de Informação de Agravos de Notificação (SINAN). Para os anos de 2014 e 2022, os dados foram baixados da API do [Infodengue](https://info.dengue.mat.br/). Os dados de 2015 a 2021 foram extraídos utilizando o pacote R [microdatasus](https://github.com/rfsaldanha/microdatasus), que acessa o banco de dados do SINAN via File Transfer Protocol (FTP). Nesse estudo utilizamos casos prováveis de chikungunya que são todos os casos notificados excluindo os casos descartados. Para acessar o dicionário de dados mais atual: [Dicionário de dados SINAN](https://portalsinan.saude.gov.br/images/documentos/Agravos/Dengue/DIC_DADOS_ONLINE.pdf). 
-A doença nao circulava no país anteriromente, portanto, levou um tempo para que os sistema de notificaçao para chikungunya chegasse ao formato atual. Dessa forma, existem diferenças na quantidade de variáveis e em algumas categorias de variáveis, como por exemplo a variável de classificaçao final, que será detalhado nos próximos passos.
+Os casos notificados de chikungunya foram obtidos do Sistema de Informação de Agravos de Notificação (SINAN). Para os anos de 2014 e 2022, os dados foram baixados da API do [Infodengue](https://info.dengue.mat.br/). Os dados de 2015 a 2021 foram extraídos utilizando o pacote R [microdatasus](https://github.com/rfsaldanha/microdatasus), que acessa o banco de dados do SINAN via File Transfer Protocol (FTP). Nesse estudo utilizamos casos prováveis de chikungunya que são todos os casos notificados excluindo os casos descartados. Para acessar o dicionário de dados mais atual: [Dicionário de dados SINAN](https://portalsinan.saude.gov.br/images/documentos/Agravos/Dengue/DIC_DADOS_ONLINE.pdf). A doença nao circulava no país anteriromente, portanto, levou um tempo para que os sistema de notificaçao para chikungunya chegasse ao formato atual. Dessa forma, existem diferenças na quantidade de variáveis e em algumas categorias de variáveis, como por exemplo a variável de classificaçao final, que será detalhado nos próximos passos.
 
 ### Dados de 2014 (Infodengue)
 
 No momento da análise não havia, via FTP, dados para o ano de 2014 e dados mais atuais para 2022. Portanto, esse foram obtidas via Infodengue como mencionado acima. No entanto, atualmente, os dados de 2022 estao completos no FTP do SINAN, possibilitando baixar os dados diretamente desse link como mostrado para os anos de 2025 a 2021.
+
 ```{r}
 d14 <- read.dbf("../data/chik_2014.dbf", as.is = T)
 names(d14) 
@@ -64,6 +64,7 @@ d1521 <- fetch_datasus(year_start = 2015, year_end = 2021, information_system = 
 #### Organizando banco
 
 Para esses anos, foram identificados alguns registros com inconsistencias na variável de classificaçao final. Esses foram removidos, totalizando 5 registros.
+
 ```{r}
 #load("../data/chikv_2015_2021_bruto.RData")
 names(d1521) 
@@ -152,7 +153,8 @@ A variável CLASSI_FIN indica o desfecho do caso após a notificação, classifi
 
 13 -- Chikungunya
 
-Para a análise, os casos prováveis de chikungunya foram selecionados a partir dos valores "13", "2", "8", "Chikungunya", "Inconclusivo" e NA, excluindo a categoria "5", que sao os descartados. 
+Para a análise, os casos prováveis de chikungunya foram selecionados a partir dos valores "13", "2", "8", "Chikungunya", "Inconclusivo" e NA, excluindo a categoria "5", que sao os descartados.
+
 ```{r}
 provaveis <- c("13", "2", "8", "Chikungunya", "Inconclusivo", NA) # Na entrou como inconclusivo visto que o NA era somente na classificação final.
 
@@ -164,6 +166,7 @@ provaveis <- c("13", "2", "8", "Chikungunya", "Inconclusivo", NA) # Na entrou co
 ### Casos autóctones do Brasil
 
 Para os casos autótocnes provaveis foram excluídos casos foram do país, resultando em 980521 registros.
+
 ```{r}
 unique(d$ID_PAIS) # Manter apenas "1" que é o código para o Brasil
 d %>% filter(ID_PAIS != "1") %>% count() # 31 registros sao de casos notificados em outros paises. 
@@ -179,6 +182,7 @@ d <- d %>%
 ### Agregando por município, semana epidemiológica e ano.
 
 O código abaixo conta quantos casos há por município, semana e ano.
+
 ```{r}
 ## Somando os casos por semana de notificação, município e ano.
 d_agreg <-  d %>% 
@@ -186,14 +190,14 @@ d_agreg <-  d %>%
 
 ```
 
-
 # Parte 2 - Banco com todos os municípios, semanas e anos
 
 Para garantir séries temporais completas, foram adicionados aos dados todos os municípios com todas as semanas epidemiológicas (1 a 53) e anos do estudo. Quando não houve notificações em uma semana e ano específicos, o valor foi registrado como zero.
 
-### Utilizando o expand.grid 
+### Utilizando o expand.grid
 
-Com a funçao expand-grid, foi gerado um banco incluindo todos os municípios brasileiros, todas as semanas e anos de estudo. 
+Com a funçao expand-grid, foi gerado um banco incluindo todos os municípios brasileiros, todas as semanas e anos de estudo.
+
 ```{r}
 # Dados do IBGE para obter todos os municipios. Posteriormente será usado para fornecer a populaçao também.
 pop <- read_csv("../data/pop2014_2022.csv")
@@ -222,7 +226,8 @@ head(d_expand)
 
 ## Inserindo todos os municípios e todas as semanas
 
-Ao unir `d` com `d_expand`, obtem-se um banco com todos os municípios, semanas e anos e a contagem de casos. Os municípios que nao registraram casos em determinada semana, recebe NA no momento da junçao. Dessa forma, na sequência, foi atribuido zero no lugar de NA. 
+Ao unir `d` com `d_expand`, obtem-se um banco com todos os municípios, semanas e anos e a contagem de casos. Os municípios que nao registraram casos em determinada semana, recebe NA no momento da junçao. Dessa forma, na sequência, foi atribuido zero no lugar de NA.
+
 ```{r}
 # Abrindo banco
 str(d_agreg)
@@ -264,11 +269,16 @@ Os dados oficiais podem ser acessados diretamente no [IBGE - Estimativas Populac
 
 Dados populacionais de 2014 a 2022 `pop2014_2022.csv` foram adicionados aos dados para o futuro cálculo de incidência.
 
-CONFERIR, o banco ficou com uma linha a mais do que o d_expand. Deveriam ter o mesmo numero de linhas.
+O município do Jacareacanga no estado do Pará nao tem a populaçao estimada para o ano de 2014 na tabela utilizada. Utilizou-se o valor encontrado nesse link <http://tabnet.datasus.gov.br/cgi/ibge/poptdescr.htm>.
 
 ```{r}
 #str(d_agreg)
 #str(pop)
+pop %>% map(~mean(is.na(.)))
+pop %>% filter(is.na(POP)) # Municipio de Jacareacanga em 2014 nao tem a populaçao
+# Populaçao inserida para Jacareacanga: 10.531
+pop[pop$CODE_MUNI == "150375" & YEAR == 2014, ]$POPULACAO <- 10531  
+
 pop <- pop %>% 
   mutate(CODE_UF = as.character(`COD. UF`)) %>% 
   select(-`COD. UF`) %>% 
@@ -284,7 +294,7 @@ d_agreg <- d_agreg %>%
   select(CODE_MUNI, CODE_MUNI_7, NAME_MUNI, CODE_UF, ACR_UF, SE, YEAR, CASES, POP)
 
 #head(d_agreg)
+d_agreg %>% map(~mean(is.na(.)))
 
 #save(d_agreg, file = "../data/chikv_14_22_final.Rdata")
 ```
-

@@ -23,25 +23,22 @@ options(scipen = 999) # avoid scientific numbers
 ## Incidência
 
 ```{r}
-load("../data/chikv_provaveis_14_22.Rdata")
+load("../data/chikv_14_22_final.Rdata")
 
 # Calculo da incidencia por ano por município
-d_inc <- d %>% 
-  group_by(CODE_MUNI, YEAR, POPULACAO) %>%
+d_inc <- d_agreg %>% 
+  group_by(CODE_MUNI, NAME_MUNI, ACR_UF, YEAR, POP) %>%
   summarise(CASESy = sum(CASES)) %>%
-  mutate(INCy = CASESy/POPULACAO * 100000) %>%
-  rename(code_muni = CODE_MUNI_7) %>%
-  ungroup %>%
-  mutate(code_muni = as.character(code_muni)) 
+  mutate(INCy = CASESy/POP * 100000) 
 
 # NA
-d_ano_p %>% map(~mean(is.na(.)))
+d_inc %>% map(~mean(is.na(.)))
 
 #observando
-summary(d_ano_p$INCy) #maior incidência na série foi Fernando de Noronha 2021
+summary(d_inc$INCy) #maior incidência na série foi Fernando de Noronha 2021
 
 # Salvando tabela de incidência por ano
-write.csv2(d_ano_p, "tables/incid_anual_chik_provaveis.csv")
+write.csv2(d_inc, "../tables/incid_anual_chik_provaveis.csv")
 ```
 
 ## Incidencia por região metropolitana e não metropolitana
