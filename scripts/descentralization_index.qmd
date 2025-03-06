@@ -28,11 +28,11 @@ The databases are:
 
 ```{r}
 # Data for Regic
-regic2018 <- read.csv2("tables/regic2018.csv", encoding = "latin1") # encoding to have formated words in this table
+regic2018 <- read.csv2("../tables/regic2018.csv", encoding = "latin1") # encoding to have formated words in this table
 
 # Data for incidence
-load("tables/inc_metr_non_metr.RData")
-colnames(chikvrm)[3] <- 'UF_ACR' 
+load("../tables/inc_reg_met.RData")
+ 
 ```
 
 # Calculation of the decentralization index (𝛹)
@@ -53,15 +53,15 @@ Decentralization Index (`𝛹`) is proposed to describe the spread of chikunguny
 
 ```{r, message = FALSE, warning = FALSE}
 # Total incidence of metropolitan region by UF and YEAR
-chikvM <- chikvrm %>%
-  filter(hierarquia == "metropolitana") %>% 
-  group_by(UF_ACR, YEAR, REGION) %>%  
+chikvM <- dmetrop %>%
+  filter(HIERARCHY == "metropolitana") %>% 
+  group_by(ACR_UF, YEAR, REGION) %>%  
   summarise(INCM = sum(INCrm))
 
 # Total incidence of non- metropolitan region by UF and YEAR
-chikvN <- chikvrm %>%
-  filter(hierarquia == "nao metropolitana") %>% 
-  group_by(UF_ACR, YEAR, REGION) %>%
+chikvN <- dmetrop %>%
+  filter(HIERARCHY == "nao metropolitana") %>% 
+  group_by(ACR_UF, YEAR, REGION) %>%
   summarise(INCN = sum(INCrm))
 
 # Joining the tables
@@ -71,31 +71,29 @@ df <- chikvN %>%
 # Calculating the decentralization index
 df <- df %>%
   mutate(IND_UF = INCN/INCM)
+df %>% map(~mean(is.na(.)))
+df %>% filter(is.na(IND_UF)) # 0/0 division
 
 # Replacing NA by zero
 df <- df %>% 
   mutate_at(c("IND_UF"), ~replace(., is.na(.), 0)) 
 
 # Saving final data
-write.csv2(df, "tables/index_descentralization.csv")
+write_csv(df, "../tables/index_descentralization.csv")
 
 ```
 
 ### Chikungunya decentralization index (𝛹) by year and Brazil Federative Unit (Figure 2)
 
 ```{r, message = FALSE, warning = FALSE}
-# Changing the variable category
-df <- df %>% 
-  mutate(YEAR = as.numeric(YEAR))
-
 # Changing all measures that are greater than 1 to up to 5, making it easier to view on the plot
 df$IND_UF_A <- ifelse(df$IND_UF > 5, 5, df$IND_UF) 
 
-desc_index <- ggplot(df, aes(x = YEAR, y = IND_UF_A, group = UF_ACR, color = "red")) +
+desc_index <- ggplot(df, aes(x = YEAR, y = IND_UF_A, group = ACR_UF, color = "red")) +
   geom_line(stat = "identity", linewidth = 0.8, position = position_dodge(preserve = "single")) +
   geom_segment(aes(x = min(YEAR), y = 1, xend = max(YEAR), yend = 1), 
                color = "cadetblue4", linewidth = 0.3) +
-  facet_geo(~UF_ACR, grid = "br_states_grid1", scales = "free_y") +  
+  facet_geo(~ACR_UF, grid = "br_states_grid1", scales = "free_y") +  
   scale_x_continuous(breaks = seq(min(df$YEAR), max(df$YEAR), by = 2)) + 
   labs(x = "Years", y = "Decentralization Index (Ψ)") + 
   theme_minimal() +  # Improves aesthetics
