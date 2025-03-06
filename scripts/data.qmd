@@ -17,6 +17,9 @@ invisible(install.packages(setdiff(packages, rownames(installed.packages()))))
 invisible(lapply(packages, require, character.only = TRUE))
 
 options(scipen = 999) # Evita notação científica
+
+# Lembre-se de fazer um setwd para o diretório se necessário
+
 ```
 
 # Parte 1 - Baixando e arrumando os dados iniciais
@@ -275,9 +278,10 @@ O município do Jacareacanga no estado do Pará nao tem a populaçao estimada pa
 #str(d_agreg)
 #str(pop)
 pop %>% map(~mean(is.na(.)))
-pop %>% filter(is.na(POP)) # Municipio de Jacareacanga em 2014 nao tem a populaçao
+pop %>% filter(is.na(POPULACAO)) # Municipio de Jacareacanga em 2014 nao tem a populaçao
 # Populaçao inserida para Jacareacanga: 10.531
-pop[pop$CODE_MUNI == "150375" & YEAR == 2014, ]$POPULACAO <- 10531  
+pop <- pop %>%
+  mutate(POPULACAO = ifelse(CODE_MUNI == "150375" & YEAR == 2014, 10531, POPULACAO)) 
 
 pop <- pop %>% 
   mutate(CODE_UF = as.character(`COD. UF`)) %>% 
