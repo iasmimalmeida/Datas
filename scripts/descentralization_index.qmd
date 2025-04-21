@@ -9,8 +9,9 @@ editor_options:
 
 ## Library
 
-```{r, message = FALSE}
-packages <- c("tidyverse", "geofacet", "sf")
+```{r}
+
+packages <- c("tidyverse", "geofacet", "sf", "dplyr", "ggplot2", "scales")
 invisible(install.packages(setdiff(packages, rownames(installed.packages()))))
 invisible(lapply(packages, require, character.only = TRUE))
 
@@ -22,17 +23,13 @@ options(scipen = 999) # avoid scientific numbers
 
 The databases are:
 
--   `regic2018.csv`: REGIC classification. REGIC (Regions of Influence of Cities) is an IBGE study that maps Brazil's urban hierarchy and the relationships between cities based on flows of goods, services and people. It identifies urban centers and their area of ​​influence, classifying cities according to their regional and national importance. Available at: [Data Regic](https://www.ibge.gov.br/geociencias/organizacao-do-territorio/redes-e-fluxos-geograficos/15798-regioes-de-influencia-das-cidades.html).
 -   `inc_metr_non_metr.csv` - average chikungunya incidence in metropolitan and non-metropolitan municipalities of each state in each year of analysis 2014-2022.
 -   `reg_metr_non_metr.csv` - classification of Brazilian municipalities into metropolitan and non-metropolitan according to the paper's methodology.
 
 ```{r}
-# Data for Regic
-regic2018 <- read.csv2("../tables/regic2018.csv", encoding = "latin1") # encoding to have formated words in this table
-
 # Data for incidence
-load("../tables/inc_reg_met.RData")
- 
+load("tables/inc_reg_met.RData")
+
 ```
 
 # Calculation of the decentralization index (𝛹)
@@ -114,3 +111,51 @@ desc_index
 ggsave(desc_index, filename = "figures/decentralization_index_state.png", width = 2500/300, height = 2000/300, dpi = 300, path = "figures", units = "in", device = "png")  
 
 ```
+
+### Population distribution by state: non-metropolitan vs. metropolitan regions in Brazil (Figure 3)
+
+```{r, message = FALSE, warning = FALSE}
+
+df2 <- dmetrop %>%
+  group_by(HIERARCHY, REGION, ACR_UF) %>%
+  summarise(total_pop = sum(POP_SIZErm, na.rm = TRUE), .groups = "drop") %>%
+  arrange(REGION, ACR_UF) %>%
+  mutate(
+    ACR_UF = factor(ACR_UF, levels = unique(ACR_UF)),
+    REGION = factor(REGION, levels = unique(REGION))
+  )
+
+# graph
+pop_dist <- ggplot(df2, aes(x = ACR_UF, y = total_pop, fill = HIERARCHY)) + 
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8)) +
+  scale_y_continuous(breaks = pretty_breaks(), labels = comma) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  labs(x = "Federative Unit (UF)", y = "Population") +
+  scale_fill_manual(
+    values = c("aquamarine4", "lightsalmon"),
+    labels = c("Non-metropolitan", "Metropolitan")
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(), 
+    panel.grid.minor = element_blank(), 
+    panel.background = element_rect(fill = "white", colour = "white"),
+    legend.title = element_blank(),
+    axis.line = element_line(color = "grey"),
+    axis.ticks = element_line(color = "grey")
+  )
+
+
+pop_dist
+
+# Salvar o gráfico em alta qualidade
+ggsave( filename = "population_distribution_state.png",plot = pop_dist, 
+        width = 12, height = 6, dpi = 300,path = "figures",units = "in", 
+        bg = "white")
+
+
+```
+
+
+
+

@@ -302,3 +302,142 @@ d_agreg %>% map(~mean(is.na(.)))
 
 #save(d_agreg, file = "../data/chikv_14_22_final.Rdata")
 ```
+
+## Timeline of the first autochthonous chikungunya case in each Brazilian state by month, from January 2014 to February 2015 (Figure 1)
+
+```{r}
+load("~/GitHub/Decentralization-index/data/chikv_14_22.Rdata")
+
+d <- pro1
+
+# Criando o banco insaio_pro com 278 observações e 3 variáveis
+invasion_pro <- d %>% 
+  mutate(YEAR = substr(DATE, 1, 4)) %>%  # Extraindo o ano da variável DATE
+  group_by(UF_ACR, YEAR) %>%  # Agrupando por estado e ano
+  summarise(
+    TOTAL_CASES = sum(CASES, na.rm = TRUE),  # Total de casos no ano
+    MIN_DATE = min(as.Date(DATE))  # Primeira data de inserção no ano
+  ) %>% 
+  ungroup() %>% 
+  arrange(MIN_DATE) %>%  # Ordenando por MIN_DATE
+  group_by(UF_ACR) %>% 
+  slice_min(MIN_DATE, n = 1) %>%  # Selecionando apenas o primeiro ano com casos registrados por estado
+  ungroup() %>% 
+  select(UF_ACR, MIN_DATE, TOTAL_CASES)  # Selecionando apenas as 3 variáveis desejadas
+
+
+write.csv2(invasion_pro, "tables/invasion_cases.csv")
+
+```
+
+## Gráfico
+
+```{r}
+# Carregar os dados
+inv <- read_csv2("tables/invasion_cases.csv")
+names(inv)
+
+# Certifique-se de que a coluna MIN_DATE esteja no formato Date
+inv <- inv %>%
+  mutate(
+    MIN_DATE = suppressWarnings(as.Date(MIN_DATE, format = "%Y-%m-%d"))
+  )
+
+# Remover linhas onde MIN_DATE é NA antes de qualquer processamento
+inv <- inv %>% filter(!is.na(MIN_DATE))
+
+# Agrupando os dados, excluindo explicitamente meses sem dados
+inv_grouped <- inv %>%
+  mutate(MONTH = format(MIN_DATE, "%Y-%m")) %>% # Criar coluna de ano-mês
+  group_by(MONTH) %>%
+  summarise(
+    adjusted_date = min(MIN_DATE, na.rm = TRUE), # Data mínima válida
+    TOTAL_CASES = sum(TOTAL_CASES, na.rm = TRUE), # Soma dos casos
+    UF_ACR = paste(UF_ACR, collapse = "-") # Concatenar siglas
+  ) %>%
+  filter(!is.na(adjusted_date) & TOTAL_CASES > 0) %>% # Remover meses sem dados ou sem casos
+  ungroup() %>%
+  mutate(position = ifelse(row_number() %% 2 == 0, 1, -1)) # Alternar posição
+
+inv_grouped <- inv_grouped %>%
+  mutate(UF_ACR = case_when(
+    UF_ACR == "BA" ~ "BA",
+    UF_ACR == "PE" ~ "PE",
+    UF_ACR %in% c("CE", "RN") ~ "CE-RN",
+    UF_ACR == "MG" ~ "MG",
+    UF_ACR %in% c("AP", "RO", "PA") ~ "AP-RO-PA",
+    UF_ACR %in% c("GO", "RJ", "SP", "PR") ~ "GO-RJ-SP-PR",
+    UF_ACR == "SC" ~ "SC",
+    UF_ACR == "RR" ~ "RR",
+    UF_ACR %in% c("PI", "PB") ~ "PI-PB",
+    UF_ACR %in% c("MS", "RS") ~ "MS-RS",
+    UF_ACR %in% c("AM", "AL", "ES") ~ "AM-AL-ES",
+    UF_ACR %in% c("SE", "TO", "DF") ~ "SE-TO-DF",
+    UF_ACR == "MT" ~ "MT",
+    UF_ACR == "MA" ~ "MA",
+    UF_ACR == "AC" ~ "AC",
+    TRUE ~ UF_ACR # Manter o valor original caso não corresponda a nenhuma regra
+  ))
+
+
+# Inspecionar os dados agrupados para garantir que a configuração foi aplicada
+print(inv_grouped)
+
+# Duplicar os dados para criar duas linhas por mês
+inv_grouped <- inv_grouped %>%
+  mutate(duplicate = list(c(1, -1))) %>% # Criar um vetor de posições
+  unnest_longer(duplicate) %>% # Expandir para criar duas linhas
+  mutate(position = duplicate) %>% # Atualizar a posição
+  select(-duplicate) # Remover a coluna temporária
+
+write.csv2(inv_grouped ,"tables/inv_groupe.csv")
+
+# Garantir que a coluna adjusted_date está no formato Date
+inv_grouped$adjusted_date <- as.Date(inv_grouped$adjusted_date, format = "%d/%m/%Y")
+
+# Criar sequência de meses completa entre a menor e a maior data
+months_to_include <- seq(
+  from = as.Date(format(min(inv_grouped$adjusted_date), "%Y-%m-01")),
+  to = as.Date(format(max(inv_grouped$adjusted_date), "%Y-%m-01")),
+  by = "month"
+)
+
+# Criar o gráfico de timeline ajustado
+g <- ggplot(inv_grouped, aes(x = adjusted_date, y = position)) +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid") + # Linha horizontal
+  geom_segment(aes(xend = adjusted_date, yend = 0), color = "gray") + # Linhas verticais
+  geom_point(aes(color = UF_ACR), size = 3, alpha = 0.7) + # Pontos ajustados com tamanho configurável
+  geom_text(aes(label = UF_ACR), vjust = ifelse(inv_grouped$position == 1, -2.5, 2.5), size = 3) + # Rótulos combinados com maior distância
+  scale_x_date(
+    date_labels = "%b %Y", # Abreviatura dos meses em inglês
+    breaks = months_to_include, # Todos os meses no intervalo
+    expand = c(0.05, 0.05) # Aumenta o espaçamento
+  ) +
+  scale_y_continuous(
+    limits = c(-1.5, 1.5),
+    breaks = NULL # Remove o eixo Y
+  ) +
+  scale_color_manual(values = rainbow(length(unique(inv_grouped$UF_ACR)))) + # Cores diferentes
+  labs(
+    title = "",
+    x = "Date",
+    y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(), # Remove linhas do fundo
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+# Salvar o gráfico em .png
+ggsave("figures/timeline_graph.png", plot = g, width = 10, height = 5, dpi = 300)
+
+# Salvar o gráfico em .svg
+#ggsave("figures/timeline_graph.svg", plot = g, width = 10, height = 5)
+
+
+```
+
+
