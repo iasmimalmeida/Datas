@@ -46,7 +46,7 @@ unique(regic2018$REGIAO)
 regic2018$NOME_CIDADE <- as.factor(regic2018$NOME_CIDADE)
 levels(regic2018$NOME_CIDADE)
 
-
+### PAREI AQUI
 ```
 
 ## Variável hierarquia
