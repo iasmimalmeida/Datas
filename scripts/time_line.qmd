@@ -1,0 +1,156 @@
+---
+title: "Time line"
+author: "Iasmim, Cláudia and Raquel"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+## Timeline do primeiro caso autóctone de chikungunya em cada estado brasileiro por mês, de janeiro de 2014 a fevereiro de 2015 (Figura 1)
+
+
+Biblioteca
+```{r, message = FALSE}
+packages <- c("ggplot2", "data.table", "lubridate", "dplyr", 
+              "tidyverse", "readr", "foreign", "sf")
+
+invisible(install.packages(setdiff(packages, rownames(installed.packages()))))
+invisible(lapply(packages, require, character.only = TRUE))
+
+options(scipen = 999) # Evita notação científica
+
+# Lembre-se de fazer um setwd para o diretório se necessário
+```
+
+
+Lendo os dados para fazer a timeline.
+```{r}
+load("../data/chikv_14_22.Rdata")  # ESSE banco nao aparece mais em data.qmd, precisa ver
+# qual o nome dele agora e atualizar aqui e apagar o velho na pasta data.
+
+# Criando o banco insaio_pro com 278 observações e 3 variáveis
+pro1 <- pro1 %>% 
+  mutate(YEAR = substr(DATE, 1, 4)) %>%  # Extraindo o ano da variável DATE
+  group_by(UF_ACR, YEAR) %>%  # Agrupando por estado e ano
+  summarise(
+    TOTAL_CASES = sum(CASES, na.rm = TRUE),  # Total de casos no ano
+    MIN_DATE = min(as.Date(DATE))  # Primeira data de registro no ano
+  ) %>% 
+  ungroup() %>% 
+  arrange(MIN_DATE) %>%  # Ordenando por MIN_DATE
+  group_by(UF_ACR) %>% 
+  slice_min(MIN_DATE, n = 1) %>%  # Selecionando apenas o primeiro ano e semana com casos registrados por estado
+  ungroup() %>% 
+  select(UF_ACR, MIN_DATE, TOTAL_CASES)  # Selecionando apenas as 3 variáveis desejadas
+
+```
+
+## Organizando os dados para a figura timeline
+
+```{r}
+names(pro1)
+
+# Conferindo se há NA em MIN_DATE
+unique(pro1$MIN_DATE)
+
+# Conferindo se está no formato de date.
+class(pro1$MIN_DATE)
+
+# Agrupando os dados, excluindo explicitamente meses sem dados
+pro1 <- pro1 %>%
+  mutate(MONTH = format(MIN_DATE, "%Y-%m")) %>% # Criar coluna de ano-mês
+  group_by(MONTH) %>%
+  summarise(
+    adjusted_date = min(MIN_DATE, na.rm = TRUE), # Data mínima válida
+    TOTAL_CASES = sum(TOTAL_CASES, na.rm = TRUE), # Soma dos casos
+    UF_ACR = paste(UF_ACR, collapse = "-") # Concatenar siglas
+  ) %>%
+  filter(!is.na(adjusted_date) & TOTAL_CASES > 0) %>% # Remover meses sem dados ou sem casos
+  ungroup() %>%
+  mutate(position = ifelse(row_number() %% 2 == 0, 1, -1)) # Alternar posição
+
+# Colocando os estados que registram o primeiro caso no mesmo mês juntos
+pro1 <- pro1 %>%
+  mutate(UF_ACR = case_when(
+    UF_ACR == "BA" ~ "BA",
+    UF_ACR == "PE" ~ "PE",
+    UF_ACR %in% c("CE", "RN") ~ "CE-RN",
+    UF_ACR == "MG" ~ "MG",
+    UF_ACR %in% c("AP", "RO", "PA") ~ "AP-RO-PA",
+    UF_ACR %in% c("GO", "RJ", "SP", "PR") ~ "GO-RJ-SP-PR",
+    UF_ACR == "SC" ~ "SC",
+    UF_ACR == "RR" ~ "RR",
+    UF_ACR %in% c("PI", "PB") ~ "PI-PB",
+    UF_ACR %in% c("MS", "RS") ~ "MS-RS",
+    UF_ACR %in% c("AM", "AL", "ES") ~ "AM-AL-ES",
+    UF_ACR %in% c("SE", "TO", "DF") ~ "SE-TO-DF",
+    UF_ACR == "MT" ~ "MT",
+    UF_ACR == "MA" ~ "MA",
+    UF_ACR == "AC" ~ "AC",
+    TRUE ~ UF_ACR # Manter o valor original caso não corresponda a nenhuma regra
+  ))
+
+# Inspecionar os dados agrupados para garantir que a configuração foi aplicada
+print(pro1)
+
+# Duplicar os dados para criar duas linhas por mês
+pro1 <- pro1 %>%
+  mutate(duplicate = list(c(1, -1))) %>% # Criar um vetor de posições
+  unnest_longer(duplicate) %>% # Expandir para criar duas linhas
+  mutate(position = duplicate) %>% # Atualizar a posição
+  select(-duplicate) # Remover a coluna temporária
+
+# Garantir que a coluna adjusted_date está no formato Date - VER SE PRECISA
+class(pro1$adjusted_date)
+# pro1$adjusted_date <- as.Date(pro1$adjusted_date, format = "%d/%m/%Y")
+
+# Criar sequência de meses completa entre a menor e a maior data
+months_to_include <- seq(
+  from = as.Date(format(min(pro1$adjusted_date), "%Y-%m-01")),
+  to = as.Date(format(max(pro1$adjusted_date), "%Y-%m-01")),
+  by = "month"
+)
+
+```
+
+# Criar o gráfico de timeline ajustado
+
+NAO FAZ SENTIDO APARECER DUAS VEZES CADA ESTADO NA FIGURA...Entendo que nao deveria vir assim, deveria haver uma alternancia em parece, uma aparece embaixo, outra hora em cima, mas nao está acontecendo.
+```{r}
+g <- ggplot(pro1, aes(x = adjusted_date, y = position)) +
+  geom_hline(yintercept = 0, color = "black", linetype = "solid") + # Linha horizontal
+  geom_segment(aes(xend = adjusted_date, yend = 0), color = "gray") + # Linhas verticais
+  geom_point(aes(color = UF_ACR), size = 3, alpha = 0.7) + # Pontos ajustados com tamanho configurável
+  geom_text(aes(label = UF_ACR), vjust = ifelse(inv_grouped$position == 1, -2.5, 2.5), size = 3) + # Rótulos combinados com maior distância
+  scale_x_date(
+    date_labels = "%b %Y", # Abreviatura dos meses em inglês
+    breaks = months_to_include, # Todos os meses no intervalo
+    expand = c(0.05, 0.05) # Aumenta o espaçamento
+  ) +
+  scale_y_continuous(
+    limits = c(-1.5, 1.5),
+    breaks = NULL # Remove o eixo Y
+  ) +
+  scale_color_manual(values = rainbow(length(unique(inv_grouped$UF_ACR)))) + # Cores diferentes
+  labs(
+    title = "",
+    x = "Date",
+    y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(), # Remove linhas do fundo
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+# Salvar o gráfico em .png
+ggsave("figures/timeline_graph.png", plot = g, width = 10, height = 5, dpi = 300)
+
+# Salvar o gráfico em .svg
+#ggsave("figures/timeline_graph.svg", plot = g, width = 10, height = 5)
+
+
+```

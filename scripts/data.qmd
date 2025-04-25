@@ -22,17 +22,19 @@ options(scipen = 999) # Evita notação científica
 
 ```
 
-# Parte 1 - Baixando e arrumando os dados iniciais
+# Parte 1 - Baixando e arrumando os dados
 
 ## Dados
 
-Origem dos dados:
+Os casos notificados de chikungunya foram obtidos do Sistema de Informação de Agravos de Notificação (SINAN). Para os anos de 2014 e 2022, os dados foram baixados da API do [Infodengue](https://info.dengue.mat.br/). Os dados de 2015 a 2021 foram extraídos utilizando o pacote R [microdatasus](https://github.com/rfsaldanha/microdatasus), que acessa o banco de dados do SINAN via File Transfer Protocol (FTP).
 
-Os casos notificados de chikungunya foram obtidos do Sistema de Informação de Agravos de Notificação (SINAN). Para os anos de 2014 e 2022, os dados foram baixados da API do [Infodengue](https://info.dengue.mat.br/). Os dados de 2015 a 2021 foram extraídos utilizando o pacote R [microdatasus](https://github.com/rfsaldanha/microdatasus), que acessa o banco de dados do SINAN via File Transfer Protocol (FTP). Nesse estudo utilizamos casos prováveis de chikungunya que são todos os casos notificados excluindo os casos descartados. Para acessar o dicionário de dados mais atual: [Dicionário de dados SINAN](https://portalsinan.saude.gov.br/images/documentos/Agravos/Dengue/DIC_DADOS_ONLINE.pdf). A doença nao circulava no país anteriromente, portanto, levou um tempo para que os sistema de notificaçao para chikungunya chegasse ao formato atual. Dessa forma, existem diferenças na quantidade de variáveis e em algumas categorias de variáveis, como por exemplo a variável de classificaçao final, que será detalhado nos próximos passos.
+Nesse estudo utilizamos casos prováveis de chikungunya que são todos os casos notificados excluindo os casos descartados. O dicionário de variáveis mais atual está disponível em [dicionário de variáveis SINAN](https://portalsinan.saude.gov.br/images/documentos/Agravos/Dengue/DIC_DADOS_ONLINE.pdf).
+
+A doença nao circulava (ou nao foi detectada) no país até 2014, portanto, levou um tempo para que os sistema de notificaçao para chikungunya chegasse ao formato atual. Dessa forma, existem diferenças na quantidade de variáveis e em algumas categorias de variáveis, como por exemplo a variável de classificaçao final, que será detalhado nos próximos passos.
 
 ### Dados de 2014 (Infodengue)
 
-No momento da análise não havia, via FTP, dados para o ano de 2014 e dados mais atuais para 2022. Portanto, esse foram obtidas via Infodengue como mencionado acima. No entanto, atualmente, os dados de 2022 estao completos no FTP do SINAN, possibilitando baixar os dados diretamente desse link como mostrado para os anos de 2025 a 2021.
+No momento em que se estava finalizando as análises ainda não estava disponível via FTP os dados para o ano de 2014 e dados mais atuais para 2022. Portanto, esse foram obtidos via Infodengue como mencionado acima. No entanto, atualmente, os dados de 2022 estao completos no FTP do SINAN, possibilitando baixar os dados diretamente desse link como mostrado para os anos de 2025 a 2021.
 
 ```{r}
 d14 <- read.dbf("../data/chik_2014.dbf", as.is = T)
@@ -66,7 +68,7 @@ d1521 <- fetch_datasus(year_start = 2015, year_end = 2021, information_system = 
 
 #### Organizando banco
 
-Para esses anos, foram identificados alguns registros com inconsistencias na variável de classificaçao final. Esses foram removidos, totalizando 5 registros.
+Para esses anos, foram identificados alguns registros com inconsistências na variável de classificaçao final. Esses foram removidos, totalizando 5 registros.
 
 ```{r}
 #load("../data/chikv_2015_2021_bruto.RData")
@@ -80,7 +82,7 @@ d1521 %>% filter(CLASSI_FIN == "10")
 d1521 <- d1521 %>% 
   filter(!(CLASSI_FIN %in% c("!\xf6", "\xad\x84", "H0", "10")))
 
-d1521 %>% map(~mean(is.na(.)))  # Presença de Na
+d1521 %>% map(~mean(is.na(.)))  # Presença de NA
 
 # Selecionando variáveis
 sel_var <- c("DT_NOTIFIC", "SG_UF_NOT", "ID_MUNICIP","ID_PAIS", "CLASSI_FIN", "CRITERIO")
@@ -120,8 +122,10 @@ d22 <- d22 %>%
   mutate(SE = epiweek(DT_NOTIFIC), # Extraindo a semana epidemiológica 
          YEAR = epiyear(DT_NOTIFIC)) # Extraindo o ano epidemiológico 
 
+# Conferindo as categorias da classificaçao final
 unique(d22$CLASSI_FIN)
-#unique(d22$DT_NOTIFIC)
+# Conferindo a formataçao das datas
+unique(d22$DT_NOTIFIC)
 
 # save(d22, file = "../data/chikv22.RData")
 
@@ -156,7 +160,7 @@ A variável CLASSI_FIN indica o desfecho do caso após a notificação, classifi
 
 13 -- Chikungunya
 
-Para a análise, os casos prováveis de chikungunya foram selecionados a partir dos valores "13", "2", "8", "Chikungunya", "Inconclusivo" e NA, excluindo a categoria "5", que sao os descartados.
+Para a análise, os casos prováveis de chikungunya foram selecionados a partir dos valores "13", "2", "8", "Chikungunya", "Inconclusivo" e NA, excluindo a categoria "5", que sao os descartados. CONFERIR
 
 ```{r}
 provaveis <- c("13", "2", "8", "Chikungunya", "Inconclusivo", NA) # Na entrou como inconclusivo visto que o NA era somente na classificação final.
@@ -168,11 +172,11 @@ provaveis <- c("13", "2", "8", "Chikungunya", "Inconclusivo", NA) # Na entrou co
 
 ### Casos autóctones do Brasil
 
-Para os casos autótocnes provaveis foram excluídos casos foram do país, resultando em 980521 registros.
+Para os casos autótocnes provaveis foram excluídos casos fora do país, resultando em 980521 registros. O código "1" é o código para o Brasil, portanto, 31 registros foram excluídos.
 
 ```{r}
-unique(d$ID_PAIS) # Manter apenas "1" que é o código para o Brasil
-d %>% filter(ID_PAIS != "1") %>% count() # 31 registros sao de casos notificados em outros paises. 
+unique(d$ID_PAIS) 
+d %>% filter(ID_PAIS != "1") %>% count() 
 
 # Selecionando apenas casos autóctones
 d <- d %>%
@@ -184,10 +188,9 @@ d <- d %>%
 
 ### Agregando por município, semana epidemiológica e ano.
 
-O código abaixo conta quantos casos há por município, semana e ano.
+Para as análises, precisamos que os dados estejam na resoluçao espacial de município, agregado na resoluçao temporal de semana epidemiológica e ano, portanto, o código abaixo agrega casos por município, semana e ano.
 
 ```{r}
-## Somando os casos por semana de notificação, município e ano.
 d_agreg <-  d %>% 
   count(ID_MUNICIP, SE, YEAR, name = "CASES")
 
@@ -195,14 +198,13 @@ d_agreg <-  d %>%
 
 # Parte 2 - Banco com todos os municípios, semanas e anos
 
-Para garantir séries temporais completas, foram adicionados aos dados todos os municípios com todas as semanas epidemiológicas (1 a 53) e anos do estudo. Quando não houve notificações em uma semana e ano específicos, o valor foi registrado como zero.
+Para garantir séries temporais completas, foram adicionados aos dados todos os municípios com todas as semanas epidemiológicas (1 a 53) e anos do estudo, uma vez que um determinado municípios em uma determinada semana e ano só aparecem no sistema quando há uma notificaçao de caso. Quando não houve notificações em um município, semana e ano específico, esse foi adicionado e o caso tomado como zero.
 
-### Utilizando o expand.grid
+Primeiramente, foi necessário obter uma lista com todos os municípios brasileiros. A lista foi obtida do IBGE. Posteriormente, essa tabela será usada para fornecer a populaçao também.
 
-Com a funçao expand-grid, foi gerado um banco incluindo todos os municípios brasileiros, todas as semanas e anos de estudo.
+Depois, criar um `data.frame`\` com todos os municípios, semanas e anos
 
 ```{r}
-# Dados do IBGE para obter todos os municipios. Posteriormente será usado para fornecer a populaçao também.
 pop <- read_csv("../data/pop2014_2022.csv")
 head(pop)
 
@@ -227,14 +229,11 @@ head(d_expand)
 
 ```
 
-## Inserindo todos os municípios e todas as semanas
-
-Ao unir `d` com `d_expand`, obtem-se um banco com todos os municípios, semanas e anos e a contagem de casos. Os municípios que nao registraram casos em determinada semana, recebe NA no momento da junçao. Dessa forma, na sequência, foi atribuido zero no lugar de NA.
+Na sequência, `d` com `d_expand`, para obter um banco com todos os municípios, semanas e anos e a contagem de casos. Os municípios que nao registraram casos em determinada semana, recebem NA no momento da junçao. Dessa forma, na sequência, foi atribuido zero no lugar de NA.
 
 ```{r}
-# Abrindo banco
-str(d_agreg)
-str(d_expand)
+#str(d_agreg)
+#str(d_expand)
 
 # Renomeando ID_MUNICIP para facilitar a junçao dos bancos.
 d_agreg <- d_agreg %>%
@@ -270,7 +269,7 @@ As estimativas anuais da população dos municípios brasileiros são calculadas
 
 Os dados oficiais podem ser acessados diretamente no [IBGE - Estimativas Populacionais](https://www.ibge.gov.br/estatisticas/sociais/populacao/9103-estimativas-de-populacao.html).
 
-Dados populacionais de 2014 a 2022 `pop2014_2022.csv` foram adicionados aos dados para o futuro cálculo de incidência.
+Dados populacionais de 2014 a 2022 foram adicionados aos dados para o futuro cálculo de incidência.
 
 O município do Jacareacanga no estado do Pará nao tem a populaçao estimada para o ano de 2014 na tabela utilizada. Utilizou-se o valor encontrado nesse link <http://tabnet.datasus.gov.br/cgi/ibge/poptdescr.htm>.
 
@@ -302,142 +301,3 @@ d_agreg %>% map(~mean(is.na(.)))
 
 #save(d_agreg, file = "../data/chikv_14_22_final.Rdata")
 ```
-
-## Timeline of the first autochthonous chikungunya case in each Brazilian state by month, from January 2014 to February 2015 (Figure 1)
-
-```{r}
-load("~/GitHub/Decentralization-index/data/chikv_14_22.Rdata")
-
-d <- pro1
-
-# Criando o banco insaio_pro com 278 observações e 3 variáveis
-invasion_pro <- d %>% 
-  mutate(YEAR = substr(DATE, 1, 4)) %>%  # Extraindo o ano da variável DATE
-  group_by(UF_ACR, YEAR) %>%  # Agrupando por estado e ano
-  summarise(
-    TOTAL_CASES = sum(CASES, na.rm = TRUE),  # Total de casos no ano
-    MIN_DATE = min(as.Date(DATE))  # Primeira data de inserção no ano
-  ) %>% 
-  ungroup() %>% 
-  arrange(MIN_DATE) %>%  # Ordenando por MIN_DATE
-  group_by(UF_ACR) %>% 
-  slice_min(MIN_DATE, n = 1) %>%  # Selecionando apenas o primeiro ano com casos registrados por estado
-  ungroup() %>% 
-  select(UF_ACR, MIN_DATE, TOTAL_CASES)  # Selecionando apenas as 3 variáveis desejadas
-
-
-write.csv2(invasion_pro, "tables/invasion_cases.csv")
-
-```
-
-## Gráfico
-
-```{r}
-# Carregar os dados
-inv <- read_csv2("tables/invasion_cases.csv")
-names(inv)
-
-# Certifique-se de que a coluna MIN_DATE esteja no formato Date
-inv <- inv %>%
-  mutate(
-    MIN_DATE = suppressWarnings(as.Date(MIN_DATE, format = "%Y-%m-%d"))
-  )
-
-# Remover linhas onde MIN_DATE é NA antes de qualquer processamento
-inv <- inv %>% filter(!is.na(MIN_DATE))
-
-# Agrupando os dados, excluindo explicitamente meses sem dados
-inv_grouped <- inv %>%
-  mutate(MONTH = format(MIN_DATE, "%Y-%m")) %>% # Criar coluna de ano-mês
-  group_by(MONTH) %>%
-  summarise(
-    adjusted_date = min(MIN_DATE, na.rm = TRUE), # Data mínima válida
-    TOTAL_CASES = sum(TOTAL_CASES, na.rm = TRUE), # Soma dos casos
-    UF_ACR = paste(UF_ACR, collapse = "-") # Concatenar siglas
-  ) %>%
-  filter(!is.na(adjusted_date) & TOTAL_CASES > 0) %>% # Remover meses sem dados ou sem casos
-  ungroup() %>%
-  mutate(position = ifelse(row_number() %% 2 == 0, 1, -1)) # Alternar posição
-
-inv_grouped <- inv_grouped %>%
-  mutate(UF_ACR = case_when(
-    UF_ACR == "BA" ~ "BA",
-    UF_ACR == "PE" ~ "PE",
-    UF_ACR %in% c("CE", "RN") ~ "CE-RN",
-    UF_ACR == "MG" ~ "MG",
-    UF_ACR %in% c("AP", "RO", "PA") ~ "AP-RO-PA",
-    UF_ACR %in% c("GO", "RJ", "SP", "PR") ~ "GO-RJ-SP-PR",
-    UF_ACR == "SC" ~ "SC",
-    UF_ACR == "RR" ~ "RR",
-    UF_ACR %in% c("PI", "PB") ~ "PI-PB",
-    UF_ACR %in% c("MS", "RS") ~ "MS-RS",
-    UF_ACR %in% c("AM", "AL", "ES") ~ "AM-AL-ES",
-    UF_ACR %in% c("SE", "TO", "DF") ~ "SE-TO-DF",
-    UF_ACR == "MT" ~ "MT",
-    UF_ACR == "MA" ~ "MA",
-    UF_ACR == "AC" ~ "AC",
-    TRUE ~ UF_ACR # Manter o valor original caso não corresponda a nenhuma regra
-  ))
-
-
-# Inspecionar os dados agrupados para garantir que a configuração foi aplicada
-print(inv_grouped)
-
-# Duplicar os dados para criar duas linhas por mês
-inv_grouped <- inv_grouped %>%
-  mutate(duplicate = list(c(1, -1))) %>% # Criar um vetor de posições
-  unnest_longer(duplicate) %>% # Expandir para criar duas linhas
-  mutate(position = duplicate) %>% # Atualizar a posição
-  select(-duplicate) # Remover a coluna temporária
-
-write.csv2(inv_grouped ,"tables/inv_groupe.csv")
-
-# Garantir que a coluna adjusted_date está no formato Date
-inv_grouped$adjusted_date <- as.Date(inv_grouped$adjusted_date, format = "%d/%m/%Y")
-
-# Criar sequência de meses completa entre a menor e a maior data
-months_to_include <- seq(
-  from = as.Date(format(min(inv_grouped$adjusted_date), "%Y-%m-01")),
-  to = as.Date(format(max(inv_grouped$adjusted_date), "%Y-%m-01")),
-  by = "month"
-)
-
-# Criar o gráfico de timeline ajustado
-g <- ggplot(inv_grouped, aes(x = adjusted_date, y = position)) +
-  geom_hline(yintercept = 0, color = "black", linetype = "solid") + # Linha horizontal
-  geom_segment(aes(xend = adjusted_date, yend = 0), color = "gray") + # Linhas verticais
-  geom_point(aes(color = UF_ACR), size = 3, alpha = 0.7) + # Pontos ajustados com tamanho configurável
-  geom_text(aes(label = UF_ACR), vjust = ifelse(inv_grouped$position == 1, -2.5, 2.5), size = 3) + # Rótulos combinados com maior distância
-  scale_x_date(
-    date_labels = "%b %Y", # Abreviatura dos meses em inglês
-    breaks = months_to_include, # Todos os meses no intervalo
-    expand = c(0.05, 0.05) # Aumenta o espaçamento
-  ) +
-  scale_y_continuous(
-    limits = c(-1.5, 1.5),
-    breaks = NULL # Remove o eixo Y
-  ) +
-  scale_color_manual(values = rainbow(length(unique(inv_grouped$UF_ACR)))) + # Cores diferentes
-  labs(
-    title = "",
-    x = "Date",
-    y = NULL
-  ) +
-  theme_minimal() +
-  theme(
-    panel.grid.major = element_blank(), # Remove linhas do fundo
-    panel.grid.minor = element_blank(),
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "none"
-  )
-
-# Salvar o gráfico em .png
-ggsave("figures/timeline_graph.png", plot = g, width = 10, height = 5, dpi = 300)
-
-# Salvar o gráfico em .svg
-#ggsave("figures/timeline_graph.svg", plot = g, width = 10, height = 5)
-
-
-```
-
-
