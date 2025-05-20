@@ -7,26 +7,26 @@ editor_options:
   chunk_output_type: console
 ---
 
-## Library
+## Biblioteca
 
 ```{r, message = FALSE}
 packages <- c("readr", "dplyr", "ggplot2","geofacet")
 invisible(install.packages(setdiff(packages, rownames(installed.packages()))))
 invisible(lapply(packages, require, character.only = TRUE))
 
-options(scipen = 999) # avoid scientific numbers
+options(scipen = 999) # Evita notação científica
 
 ```
 
-## Data
+## Dados
 
-The databases are:
+Os bancos de dados são:
 
--   `regic2018.csv`: REGIC classification. REGIC (Regions of Influence of Cities) is an IBGE study that maps Brazil's urban hierarchy and the relationships between cities based on flows of goods, services and people. It identifies urban centers and their area of ​​influence, classifying cities according to their regional and national importance. Available at: [Data Regic](https://www.ibge.gov.br/geociencias/organizacao-do-territorio/redes-e-fluxos-geograficos/15798-regioes-de-influencia-das-cidades.html).
+-   `regic2018.csv`: Classificação REGIC. REGIC (Regiões de Influência das Cidades) é um estudo do IBGE que mapeia a hierarquia urbana do Brasil e as relações entre as cidades com base nos fluxos de bens, serviços e pessoas. Identifica os centros urbanos e sua área de influência, classificando as cidades de acordo com sua importância regional e nacional. Disponível em: [Data Regic](https://www.ibge.gov.br/geociencias/organizacao-do-territorio/redes-e-fluxos-geograficos/15798-regioes-de-influencia-das-cidades.html).
 
 ```{r}
-# Data for Regic
-regic2018 <- read.csv2("tables/regic2018.csv", encoding = "latin1") # encoding to have formated words in this table
+# Regic
+regic2018 <- read.csv2("data/regic2018.csv", encoding = "latin1") 
 
 ```
 
@@ -76,17 +76,17 @@ reg_metr <- regic2018 %>%
   ) %>%
   # Passo 3: Renomear as variáveis conforme solicitado
   transmute(
-    CODE_MUNI = COD_CIDADE,
-     STATE = UF,
-    REGION = COD_UF,
-    region = hierarquia_new
+     CODE_MUNI = COD_CIDADE,
+     COD_UF = COD_UF,
+     ACR_UF = UF,
+     HIERARCHY = hierarquia_new
   )
 
 # Verificar a nova tabela
-table(reg_metr$region)
+table(reg_metr$HIERARCHY)
 
 # (Opcional) Salvar o resultado
-write.csv2(reg_metr, "tables/reg_metr_non_metr.csv.csv", row.names = FALSE)
+write.csv2(reg_metr, "tables/reg_metr_non_metr.csv", row.names = FALSE)
 
 ```
 
@@ -114,9 +114,8 @@ summary(d_inc$INCy) #maior incidência na série foi Fernando de Noronha 2021
 
 ```{r}
 # Ler os dados
-reg_metr <- read_csv2("../tables/reg_metr_non_metr.csv")
-str(reg_metr)
-reg_metr %>% map(~mean(is.na(.)))
+reg_metr <- read_csv2("tables/reg_metr_non_metr.csv")
+reg_metr$CODE_MUNI <- as.character(reg_metr$CODE_MUNI )
 # Excluindo o Distrito Federal antes de juntar os bancos
 d_inc <- d_inc %>% filter(CODE_MUNI != "530010")
 
@@ -124,32 +123,30 @@ class(reg_metr$CODE_MUNI)
 reg_metr <- reg_metr %>% 
   filter(CODE_MUNI != 5300108) %>% 
   mutate(CODE_MUNI = as.character(CODE_MUNI),
-         CODE_MUNI = str_sub(CODE_MUNI, 1, 6)) %>% # compatibilizando para juntar com d_inc
-  rename(ACR_UF = STATE)
+         CODE_MUNI = str_sub(CODE_MUNI, 1, 6)) 
 
-# Juntar os bancos de dados pelo CODE_MUNI _NAO DEU CERTO
+# Juntar os bancos de dados pelo CODE_MUNI 
 d <- d_inc %>%
-  left_join(reg_metr)
-# NA
-d %>% map(~mean(is.na(.)))
+  left_join(reg_metr) %>%
+  mutate(HIERARCHY = if_else(is.na(HIERARCHY), "nao metropolitana", HIERARCHY))
 
-# Agrupar por HIERARQUIA (metropolitano ou não), REGION, STATE e YEAR
+# Verificar a nova tabela
+table(d$HIERARCHY[d$YEAR == 2022])
+
+
+# Agrupar por HIERARCHY (metropolitano ou não)
 dmetrop <- d %>%
-  group_by(regiao, REGION, ACR_UF, YEAR) %>%
+  group_by(HIERARCHY,ACR_UF, YEAR) %>%
   summarise(
     CASESrm = sum(CASESy),   # Total de casos na categoria
     POP_SIZErm = sum(POP)  # Total da população na categoria
   ) %>%
-  ungroup() %>% 
-  mutate(
-    INCrm = (CASESrm / POP_SIZErm) * 100000, # Cálculo da incidência por 100 mil hab.
-    HIERARCHY = regiao  # Renomeando a coluna 'regiao' para 'hierarquia'
-  ) %>%
-  select(HIERARCHY, REGION, ACR_UF, YEAR, CASESrm, POP_SIZErm, INCrm) # Selecionando as variáveis desejadas
+ ungroup() %>%
+  mutate(INCrm = (CASESrm / POP_SIZErm) * 100000)
 
 dmetrop %>% map(~mean(is.na(.)))
 summary(dmetrop)
               
-save(dmetrop, file = "../tables/inc_reg_met.RData")
+save(dmetrop, file = "tables/inc_reg_met.RData")
 
 ```

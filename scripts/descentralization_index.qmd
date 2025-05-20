@@ -52,13 +52,13 @@ Decentralization Index (`𝛹`) is proposed to describe the spread of chikunguny
 # Total incidence of metropolitan region by UF and YEAR
 chikvM <- dmetrop %>%
   filter(HIERARCHY == "metropolitana") %>% 
-  group_by(ACR_UF, YEAR, REGION) %>%  
+  group_by(ACR_UF, YEAR) %>%  
   summarise(INCM = sum(INCrm))
 
 # Total incidence of non- metropolitan region by UF and YEAR
 chikvN <- dmetrop %>%
   filter(HIERARCHY == "nao metropolitana") %>% 
-  group_by(ACR_UF, YEAR, REGION) %>%
+  group_by(ACR_UF, YEAR) %>%
   summarise(INCN = sum(INCrm))
 
 # Joining the tables
@@ -108,7 +108,7 @@ desc_index <- ggplot(df, aes(x = YEAR, y = IND_UF_A, group = ACR_UF, color = "re
 
 desc_index
 
-ggsave(desc_index, filename = "figures/decentralization_index_state.png", width = 2500/300, height = 2000/300, dpi = 300, path = "figures", units = "in", device = "png")  
+ggsave(desc_index, filename = "decentralization_index_state.png", width = 2500/300, height = 2000/300, dpi = 300, path = "figures", units = "in", device = "png")  
 
 ```
 
@@ -117,13 +117,12 @@ ggsave(desc_index, filename = "figures/decentralization_index_state.png", width 
 ```{r, message = FALSE, warning = FALSE}
 
 df2 <- dmetrop %>%
-  group_by(HIERARCHY, REGION, ACR_UF) %>%
+  group_by(HIERARCHY,ACR_UF) %>%
   summarise(total_pop = sum(POP_SIZErm, na.rm = TRUE), .groups = "drop") %>%
   arrange(REGION, ACR_UF) %>%
   mutate(
-    ACR_UF = factor(ACR_UF, levels = unique(ACR_UF)),
-    REGION = factor(REGION, levels = unique(REGION))
-  )
+    ACR_UF = factor(ACR_UF, levels = unique(ACR_UF))
+    )
 
 # graph
 pop_dist <- ggplot(df2, aes(x = ACR_UF, y = total_pop, fill = HIERARCHY)) + 
@@ -155,7 +154,3 @@ ggsave( filename = "population_distribution_state.png",plot = pop_dist,
 
 
 ```
-
-
-
-

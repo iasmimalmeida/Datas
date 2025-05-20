@@ -1,0 +1,134 @@
+---
+title: "Beyond the metropolises: the decentralization of chikungunya to non-metropolitan regions across Brazil."
+author: "Iasmim Ferreira de Almeida, Cláudia Torres Codeço and Raquel Martins Lana"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+
+## Biblioteca
+
+```{r}
+# Lista de pacotes necessários
+packages <- c(
+  "tidyverse", "geofacet", "sf", "dplyr", "ggplot2", "scales",
+  "lubridate", "geobr", "readr", "png", "grid", "gridExtra", "magick")
+invisible(install.packages(setdiff(packages,rownames(installed.packages()))))
+invisible(lapply(packages, require, character.only = TRUE))
+
+options(scipen = 999) # Evitar notação científica nos gráficos
+
+```
+
+## Dados
+```{r}
+load("~/GitHub/Decentralization-index/data/chikv_14_22.Rdata")
+names(d)
+d <- pro1 %>%
+  mutate(
+    CASES = as.numeric(CASES),
+    DATE = as.Date(DATE),
+    MUNI_CODE = as.character(MUNI_CODE)
+  )
+
+```
+
+## Timeline 
+ 
+### Parte 1 - Cálculo para primeira notificação em cada UF.
+Foi considerado invasão o primeiro mês no qual o estado registrou o primeiro caso provável.
+```{r}
+inv <- d %>%
+  filter(CASES > 0) %>%
+  group_by(UF_ACR) %>%
+  summarise(MIN_DATE = min(as.Date(DATE), na.rm = TRUE), .groups = "drop") %>%
+  arrange(MIN_DATE)
+
+```
+
+### Parte 2 - Organizando as UFs para a timeline
+```{r}
+
+# Agrupando os dados
+inv_grouped <- inv %>%
+  mutate(MONTH = format(MIN_DATE, "%Y-%m")) %>% # Criar coluna de ano-mês
+  group_by(MONTH) %>%
+  summarise(
+    adjusted_date = min(MIN_DATE, na.rm = TRUE), # Data mínima válida
+    UF_ACR = paste(UF_ACR, collapse = "-") # Concatenar siglas
+  ) %>%
+   mutate(position = ifelse(row_number() %% 2 == 0, 1, -1)) # Alternar posição
+
+#Reagrupando ### Está com erro aqui que não consigo resolver se não for manual##
+inv_grouped <- inv %>%
+  mutate(UF_ACR = case_when(
+    UF_ACR == "BA" ~ "BA",
+    UF_ACR == "PE" ~ "PE",
+    UF_ACR %in% c("CE", "RN") ~ "CE-RN",
+    UF_ACR == "MG" ~ "MG",
+    UF_ACR %in% c("AP", "RO", "PA") ~ "AP-RO-PA",
+    UF_ACR %in% c("GO", "RJ", "SP", "PR") ~ "GO-RJ-SP-PR",
+    UF_ACR == "SC" ~ "SC",
+    UF_ACR == "RR" ~ "RR",
+    UF_ACR %in% c("PI", "PB") ~ "PI-PB",
+    UF_ACR %in% c("MS", "RS") ~ "MS-RS",
+    UF_ACR %in% c("AM", "AL", "ES") ~ "AM-AL-ES",
+    UF_ACR %in% c("SE", "TO", "DF") ~ "SE-TO-DF",
+    UF_ACR == "MT" ~ "MT",
+    UF_ACR == "MA" ~ "MA",
+    UF_ACR == "AC" ~ "AC",
+  ))
+
+
+```
+
+## Timeline
+```{r}
+# Garantir que a coluna MIN_DATE está no formato Date
+inv_grouped <- inv_grouped %>%
+  mutate(
+    MIN_DATE = as.Date(MIN_DATE),
+    position = rep(c(1, -1), length.out = n()) # Alterna 1 e -1 para posição dos rótulos
+  )
+
+# Criar sequência de meses completa entre a menor e a maior data
+months_to_include <- seq(
+  from = floor_date(min(inv_grouped$MIN_DATE), "month"),
+  to = floor_date(max(inv_grouped$MIN_DATE), "month"),
+  by = "month"
+)
+
+# Criar o gráfico de timeline
+g <- ggplot(inv_grouped, aes(x = MIN_DATE, y = position)) +
+  geom_hline(yintercept = 0, color = "black") + # Linha do tempo
+  geom_segment(aes(xend = MIN_DATE, yend = 0), color = "gray") + # Linhas verticais
+  geom_point(aes(color = UF_ACR), size = 3, alpha = 0.7) + # Pontos
+  geom_text(aes(label = UF_ACR), vjust = ifelse(inv_grouped$position == 1, -1.5, 1.5), size = 3) + # Rótulos acima/abaixo
+  scale_x_date(
+    date_labels = "%b %Y",
+    breaks = months_to_include,
+    expand = c(0.01, 0.01)
+  ) +
+  scale_y_continuous(
+    limits = c(-2, 2),
+    breaks = NULL
+  ) +
+  scale_color_manual(values = rainbow(length(unique(inv_grouped$UF_ACR)))) +
+  labs(
+    title = "",
+    x = "Data de Início",
+    y = NULL
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "none"
+  )
+
+# Salvar o gráfico
+ggsave("Figuras/timeline_graph.png", plot = g, width = 10, height = 5, dpi = 300)
+```
+
