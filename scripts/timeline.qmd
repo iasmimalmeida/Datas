@@ -7,7 +7,6 @@ editor_options:
   chunk_output_type: console
 ---
 
-
 ## Biblioteca
 
 ```{r}
@@ -23,6 +22,7 @@ options(scipen = 999) # Evitar notação científica nos gráficos
 ```
 
 ## Dados
+
 ```{r}
 load("~/GitHub/Decentralization-index/data/chikv_14_22.Rdata")
 names(d)
@@ -35,10 +35,12 @@ d <- pro1 %>%
 
 ```
 
-## Timeline 
- 
+## Timeline
+
 ### Parte 1 - Cálculo para primeira notificação em cada UF.
+
 Foi considerado invasão o primeiro mês no qual o estado registrou o primeiro caso provável.
+
 ```{r}
 inv <- d %>%
   filter(CASES > 0) %>%
@@ -49,6 +51,7 @@ inv <- d %>%
 ```
 
 ### Parte 2 - Organizando as UFs para a timeline
+
 ```{r}
 
 # Agrupando os dados
@@ -85,6 +88,9 @@ inv_grouped <- inv %>%
 ```
 
 ## Timeline
+
+Em processo de construção
+
 ```{r}
 # Garantir que a coluna MIN_DATE está no formato Date
 inv_grouped <- inv_grouped %>%
@@ -131,4 +137,3 @@ g <- ggplot(inv_grouped, aes(x = MIN_DATE, y = position)) +
 # Salvar o gráfico
 ggsave("Figuras/timeline_graph.png", plot = g, width = 10, height = 5, dpi = 300)
 ```
-
